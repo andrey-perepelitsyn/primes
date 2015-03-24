@@ -1,5 +1,5 @@
 /*
- * main_mt.c
+ * primes.c
  *
  *  Created on: 20 марта 2015 г.
  *      Author: Andrey Perepelitsyn
