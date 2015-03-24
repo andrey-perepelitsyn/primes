@@ -32,4 +32,3 @@ primes_t get_primes_count(primes_list_t *primes, primes_t max_number);
 primes_list_t *primes_calc(primes_t range_start, primes_t range_end, primes_list_t *dividers);
 
 #endif /* PRIMES_H_ */
-z
