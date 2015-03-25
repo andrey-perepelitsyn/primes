@@ -11,7 +11,7 @@
 #include <stdint.h>
 
 //typedef uintmax_t primes_t;
-typedef uint64_t primes_t;
+typedef uint32_t primes_t;
 
 typedef struct PrimesList {
 	primes_t count;
