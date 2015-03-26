@@ -24,10 +24,11 @@ typedef struct PrimesWorkerInfo {
 
 primes_worker_t workers[MAX_WORKERS];
 primes_t
-	range_start = 1,
-	range_end = 42949672U, //4294967295U,
-	range_chunk = 1000000U,
-	current_start = 1;
+	range_start = 1U,
+	range_end   = 4294967295U, //4294967295U,
+	range_chunk    = 10000000U,
+	current_start = 1U;
+
 primes_list_t *dividers, *results = NULL;
 unsigned workers_count = 4, workers_done = 0;
 
@@ -46,22 +47,33 @@ void *worker_func(void *thread_arg) {
 	primes_t worker_start, worker_end;
 	primes_list_t *result, *cur;
 	primes_worker_t *info = (primes_worker_t *)thread_arg;
+	int tries;
 
 	while(current_start < range_end) {
 		// new range for processing starts from 'current_start'
 		// it's global, so we need to block this operation:
 		assert(pthread_mutex_lock(&range_mutex) == 0);
 		worker_start = current_start;
-		current_start += range_chunk;
+		if(range_end - current_start + 1 > range_chunk)
+			current_start += range_chunk;
+		else
+			current_start = range_end;
 		assert(pthread_mutex_unlock(&range_mutex) == 0);
 
-		if(worker_start > range_end)
+		if(worker_start >= range_end)
 			break;
-		if(worker_start + range_chunk > range_end)
+		if(range_end - worker_start + 1 <= range_chunk)
 			worker_end = range_end;
 		else
 			worker_end = worker_start + range_chunk - 1;
-		result = primes_calc(worker_start, worker_end, dividers);
+		printf("thread %i: starting [%u, %u] range...\n", info->worker_id, worker_start, worker_end);
+		tries = 3;
+		while((result = primes_calc(worker_start, worker_end, dividers)) == NULL && --tries) {
+			fprintf(stderr, "thread %d: primes_calc() failed on range [%u, %u]!\n",
+					info->worker_id, worker_start, worker_end);
+			sleep(1);
+		}
+		assert(result != NULL);
 		// adding new result block to results chain 'results'
 		// it's global, so we need to block this operation:
 		assert(pthread_mutex_lock(&results_mutex) == 0);
@@ -76,6 +88,7 @@ void *worker_func(void *thread_arg) {
 		assert(pthread_mutex_unlock(&results_mutex) == 0);
 		printf("thread %d: chunk [%u, %u] calculated\n", info->worker_id,
 				(unsigned)worker_start, (unsigned)worker_end);
+		fflush(stdout);
 	}
 	// increment 'workers_done'
 	assert(pthread_mutex_lock(&results_mutex) == 0);
@@ -172,6 +185,7 @@ int main(int argc,char *argv[])
 			if(cur != NULL) {
 				printf("saving [%u, %u]...\n", (unsigned)cur->range_start, (unsigned)cur->range_end);
 				save_result(f, cur);
+				fflush(stdout);
 				n += range_chunk;
 				total += cur->count;
 				free(cur->data);

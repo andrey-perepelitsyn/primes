@@ -59,7 +59,9 @@ primes_list_t *primes_calc(primes_t range_start, primes_t range_end, primes_list
 		//fprintf(stderr, "%4d", dividers->data[i]);
 	// так как все делители у нас в памяти, решето нам не нужно, его можно просто вообразить:)
 	// а вот список под готовые простые числа надо сразу выделить:
-	assert((result = (primes_list_t *)calloc(1, sizeof(primes_list_t))) != NULL);
+	result = (primes_list_t *)calloc(1, sizeof(primes_list_t));
+	if(result == NULL)
+		return NULL;
 	result->count = 0;
 	result->range_start = range_start;
 	result->range_end = range_end;
@@ -68,7 +70,10 @@ primes_list_t *primes_calc(primes_t range_start, primes_t range_end, primes_list
 	// добавим еще 20, чтобы скомпенсировать ошибку на малых значениях x
 	i = 1.2 * range_end / log(range_end) - 0.8 * range_start / log(range_start + 1) + 20;
 	result->data = (primes_t *)calloc(i, sizeof(primes_t));
-	assert(result->data != NULL);
+	if(result->data == NULL) {
+		free(result);
+		return NULL;
+	}
 	//fprintf(stderr, "array of size %d has been allocated\n", i);
 	result->next = NULL;
 	// ищем простые числа из заданного диапазона в списке делителей и переписываем их в результаты
@@ -97,8 +102,8 @@ primes_list_t *primes_calc(primes_t range_start, primes_t range_end, primes_list
 	for(i = j = 0, div = dividers; i < dividers_count; i++) {
 		assert(div != NULL);
 		counters[i] = n % div->data[j];
-		if(counters[i] == 0)
-			counters[i] = div->data[j];
+		if(counters[i])
+			counters[i] = div->data[j] - counters[i];
 		//fprintf(stderr, "%4d", counters[i]);
 		if(++j == div->count) {
 			j = 0;
@@ -107,16 +112,18 @@ primes_list_t *primes_calc(primes_t range_start, primes_t range_end, primes_list
 	}
 	//fprintf(stderr, "\n");
 	// проходим по просеиваемому диапазону
-	for(; n <= range_end; n++) {
+	for(; n && n <= range_end; n++) {
 		// до проверки считаем n простым:
 		n_is_prime = 1;
 		//fprintf(stderr, "%3d ", n);
 		// проходим по массиву счетчиков и списку делителей
 		for(i = j = 0, div = dividers; i < dividers_count; i++) {
+			//printf("n:%5u, i:%3u, counters[i]:%3u, div->data[j]:%3u\n", n, i, counters[i], div->data[j]);
 			// n делится на i-й делитель?
-			if(counters[i]++ == div->data[j]) {
-				counters[i] = 1;
+			if(counters[i]-- == 0) {
+				counters[i] = div->data[j] - 1;
 				n_is_prime = 0;
+				//printf("n is not prime!\n");
 			}
 			if(++j == div->count) {
 				j = 0;
@@ -131,7 +138,5 @@ primes_list_t *primes_calc(primes_t range_start, primes_t range_end, primes_list
 	//fprintf(stderr, "%d primes found\n", result->count);
 	// освобождаем память от счетчиков
 	free(counters);
-	// освобождаем лишнюю память
-	result->data = (primes_t *)realloc(result->data, result->count * sizeof(primes_t));
 	return result;
 }
